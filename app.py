@@ -2,98 +2,93 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Configurações da página
+# CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="Comparador de CPK - Speedmax", layout="wide")
+
+# ESTILO PERSONALIZADO
 st.markdown("""
     <style>
-    .main {background-color: #f8f4ff;}
-    .stApp {font-family: 'Arial'; color: #2e1a47;}
+        .main { background-color: #f8f4ff; }
+        .stApp { font-family: 'Arial'; color: #2e1a47; }
     </style>
 """, unsafe_allow_html=True)
 
-# Logo e Título
+# LOGO
 st.image("https://uploaddeimagens.com.br/images/004/789/134/full/speedmax-logo.png", width=200)
 st.title("🛞 Comparador de CPK - Speedmax")
 
-st.markdown("Preencha os dados abaixo para comparar sua marca com concorrentes e mostrar o menor custo por km da frota.")
+st.markdown("Preencha os dados para comparar a performance do pneu Speedmax com os concorrentes e visualizar a economia gerada.")
 
-# Dados do Veículo
-st.header("🚗 Tipo de Veículo")
-tipos_veiculo = {
-    "Caminhão Toco": 6,
-    "Caminhão Truck": 10,
-    "Carreta Toco": 18,
-    "Carreta Traçada": 22,
-    "Bitrem": 34,
-    "Treminhão": 42
-}
-veiculo = st.selectbox("Selecione o tipo de veículo:", list(tipos_veiculo.keys()))
-qtde_pneus = tipos_veiculo[veiculo]
-st.write(f"Este veículo utiliza **{qtde_pneus} pneus**.")
+# CONTATO
+st.markdown("""
+**Consultor de Vendas:** Antônio Dos Santos Souza  
+📧 antonio.souza@cantustore.com.br  
+""")
 
-# Dados da sua marca
-st.header("💼 Sua Marca")
-marca = st.text_input("Marca do seu pneu")
-modelo = st.text_input("Modelo do pneu")
-valor_unitario = st.number_input("Valor unitário (R$)", min_value=100.0, step=10.0)
-km_rodado = st.number_input("Média de KM rodado", min_value=1000, step=1000)
+# TIPO DE VEÍCULO
+st.header("🚚 Tipo de Veículo")
+veiculo = st.selectbox("Selecione o tipo de veículo:", [
+    "Toco (6 pneus)", "Truck (10 pneus)", "Carreta 3 eixos (22 pneus)",
+    "Bitrem (34 pneus)", "Rodotrem (38 pneus)", "Outro"
+])
+qtde_pneus = {
+    "Toco (6 pneus)": 6,
+    "Truck (10 pneus)": 10,
+    "Carreta 3 eixos (22 pneus)": 22,
+    "Bitrem (34 pneus)": 34,
+    "Rodotrem (38 pneus)": 38,
+    "Outro": st.number_input("Informe manualmente a quantidade de pneus:", min_value=1, value=6)
+}[veiculo]
 
-# Concorrentes dinâmicos
-st.header("🏋️ Concorrentes")
+# DADOS DO PNEU SPEEDMAX
+st.header("🔧 Dados do Pneu Speedmax")
+marca_modelo = st.text_input("Marca/Modelo", value="Speedmax Prime")
+valor = st.number_input("Valor do pneu (R$)", min_value=100.0, step=10.0)
+km = st.number_input("Média de km rodado", min_value=1000, max_value=500000, step=1000)
+cpk_base = valor / km
+
+# DADOS DOS CONCORRENTES
+st.header("🏁 Concorrentes")
 concorrentes = []
-qtd = st.number_input("Quantos concorrentes deseja comparar?", min_value=1, max_value=5, step=1)
 
-for i in range(int(qtd)):
-    with st.expander(f"Concorrente {i+1}"):
-        nome = st.text_input(f"Marca Concorrente {i+1}", key=f"marca_{i}")
-        modelo_conc = st.text_input(f"Modelo Concorrente {i+1}", key=f"modelo_{i}")
-        preco = st.number_input(f"Preço Concorrente {i+1} (R$)", key=f"preco_{i}", min_value=100.0)
-        km = st.number_input(f"KM rodado Concorrente {i+1}", key=f"km_{i}", min_value=1000)
-
+for i in range(1, 5):
+    with st.expander(f"Concorrente {i}"):
+        nome = st.text_input(f"Marca/Modelo concorrente {i}", key=f"nome_{i}")
+        preco = st.number_input(f"Valor do pneu concorrente {i} (R$)", min_value=100.0, step=10.0, key=f"preco_{i}")
+        km_rodado = st.number_input(f"Km médio concorrente {i}", min_value=1000, step=1000, key=f"km_{i}")
         if nome:
-            concorrentes.append({
-                "Marca": nome,
-                "Modelo": modelo_conc,
-                "Valor": preco,
-                "KM": km
-            })
+            cpk = preco / km_rodado
+            concorrentes.append({"Marca": nome, "CPK": cpk})
 
-# Cálculo do CPK
-def calcular_cpk(valor, km):
-    return valor / km if km > 0 else 0
+# CALCULAR ECONOMIA
+if concorrentes:
+    data = pd.DataFrame(concorrentes)
+    data = data.append({"Marca": marca_modelo, "CPK": cpk_base}, ignore_index=True)
+    data = data.sort_values("CPK")
+    melhor_cpk = data.iloc[0]["CPK"]
+    economia_percent = ((max(data["CPK"]) - melhor_cpk) / max(data["CPK"])) * 100
+    economia_mensal = (max(data["CPK"]) - melhor_cpk) * qtde_pneus * 10000
+    economia_anual = economia_mensal * 12
+    economia_5_anos = economia_anual * 5
 
-if marca and modelo and valor_unitario > 0 and km_rodado > 0:
-    st.subheader("📊 Resultados do CPK")
-    dados = []
-    cpk_sua_marca = calcular_cpk(valor_unitario, km_rodado)
-    dados.append({"Marca": f"{marca} ({modelo})", "CPK": cpk_sua_marca})
-
-    for c in concorrentes:
-        cpk_conc = calcular_cpk(c["Valor"], c["KM"])
-        dados.append({"Marca": f"{c['Marca']} ({c['Modelo']})", "CPK": cpk_conc})
-
-    df = pd.DataFrame(dados)
-    df = df.sort_values(by="CPK")
-    st.dataframe(df, use_container_width=True)
-
-    # Economia
-    menor_cpk = df.iloc[0]
-    if menor_cpk["Marca"] != f"{marca} ({modelo})":
-        economia = ((cpk_sua_marca - menor_cpk["CPK"]) / menor_cpk["CPK"]) * 100
-        st.warning(f"Seu CPK é **{economia:.1f}%** mais caro que o da marca {menor_cpk['Marca']}")
-    else:
-        st.success("Parabéns! Sua marca tem o menor CPK da comparação!")
-
-    # Gráfico
-    fig, ax = plt.subplots()
-    ax.bar(df["Marca"], df["CPK"])
-    ax.set_ylabel("CPK (R$/km)")
-    ax.set_title("Comparativo de CPK por Marca")
+    st.subheader("📊 Comparativo de CPK (R$/km)")
+    fig, ax = plt.subplots(figsize=(8, 4))
+    bars = ax.bar(data["Marca"], data["CPK"], color=[
+        '#6A0DAD' if marca == marca_modelo else 'gray' for marca in data["Marca"]
+    ])
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2, height, f'{height:.2f}', ha='center', va='bottom')
+    ax.set_ylabel("Custo por Km (R$)")
     st.pyplot(fig)
 
-# Rodapé personalizado
-st.markdown("""
----
-**Consultor de Vendas:** Antônio Dos Santos Souza  
-**E-mail:** antonio.souza@cantustore.com.br  
-""")
+    st.success(f"✅ Economia de até **{economia_percent:.1f}%** ao escolher o pneu com menor CPK.")
+    st.info(f"""
+    💰 **Economia estimada:**
+    - Mensal: R$ {economia_mensal:,.2f}
+    - Anual: R$ {economia_anual:,.2f}
+    - Em 5 anos: R$ {economia_5_anos:,.2f}
+    """)
+
+else:
+    st.warning("Adicione ao menos 1 concorrente para visualizar o gráfico e os resultados.")
